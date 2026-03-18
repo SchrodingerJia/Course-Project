@@ -1,0 +1,446 @@
+---
+title: "Statistical Calculation Lab2"
+author: "ID NAME"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    latex_engine: xelatex
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rticles)
+library(gridExtra)
+library(dplyr)
+library(ggplot2)
+library(reshape2)
+library(tidyr)
+```
+# 1. Exercises
+## Exercise 2.3: 2D Normal Distribution
+(1) Conditional Distribution Method:
+```{r, message=FALSE, warning=FALSE}
+n <- 1000
+xi <- matrix(0,n,2)
+mu1 = mu2 = 1
+sigma1 = sigma2 = 1
+rho = -0.5
+sigma12 = sigma21 = rho*sqrt(sigma1*sigma2)
+sigma_ = sigma1 - sigma12 * sigma2^(-1) * sigma21
+for(i in 1:n){
+  x2 = rnorm(1, mu2, sqrt(sigma2))
+  mu_ = mu1 + sigma12 * sigma2^(-1) * (x2 - mu2)
+  x1 = rnorm(1, mu_, sqrt(sigma_))
+  xi[i,] = c(x1, x2)
+}
+eta1 = xi[,1]
+eta2 = xi[,2]
+muh = c(mean(eta1), mean(eta2))
+sigmah = matrix(c(var(eta1), cor(eta1, eta2), cor(eta2, eta1), var(eta2)),2)
+```
+```{r, message=FALSE, echo=FALSE, warning = FALSE}
+# 创建数据框
+df <- data.frame(eta1 = eta1, eta2 = eta2)
+# 1. 散点图
+p1 <- ggplot(df, aes(x = eta1, y = eta2)) +
+  geom_point(alpha = 0.6, color = "steelblue") +
+  geom_density_2d(color = "red", linewidth = 0.5) +
+  geom_vline(xintercept = muh[1], linetype = "dashed", color = "red") +
+  geom_hline(yintercept = muh[2], linetype = "dashed", color = "red") +
+  labs(title = "Scatter Diagram",
+       subtitle = paste("rho =", rho),
+       x = "eta1", y = "eta2") +
+  theme_minimal()
+# 2. eta1的直方图与密度曲线
+p2 <- ggplot(df, aes(x = eta1)) +
+  geom_histogram(aes(y = ..density..), bins = 30,
+                 fill = "lightblue", color = "black", alpha = 0.7) +
+  geom_density(color = "darkblue", linewidth = 1) +
+  geom_vline(xintercept = muh[1], linetype = "dashed", color = "red", linewidth = 1) +
+  labs(title = "Distribution of eta1", x = "eta1", y = "Dense") +
+  theme_minimal()
+# 3. eta2的直方图与密度曲线
+p3 <- ggplot(df, aes(x = eta2)) +
+  geom_histogram(aes(y = ..density..), bins = 30,
+                 fill = "lightgreen", color = "black", alpha = 0.7) +
+  geom_density(color = "darkgreen", linewidth = 1) +
+  geom_vline(xintercept = muh[2], linetype = "dashed", color = "red", linewidth = 1) +
+  labs(title = "Distribution of eta2", x = "eta2", y = "Dense") +
+  theme_minimal()
+# 4. 箱线图比较
+p4 <- ggplot(df) +
+  geom_boxplot(aes(x = "eta1", y = eta1), fill = "lightblue", width = 0.3) +
+  geom_boxplot(aes(x = "eta2", y = eta2), fill = "lightgreen", width = 0.3) +
+  labs(title = "Box Plot of eta1 & eta2", x = "", y = "value") +
+  theme_minimal()
+# 打印统计信息
+cat("Sample Average:\n")
+print(muh)
+cat("\nSample Covariance Matrix:\n")
+print(sigmah)
+grid.arrange(p1, p4, p2, p3, ncol = 2)
+```
+(2) Transform Sampling Method:
+```{r, message=FALSE, warning=FALSE}
+n <- 1000
+mu1 = mu2 = 1
+sigma1 = sigma2 = 1
+rho = -0.5
+xi1 = rnorm(n, 0, 1)
+xi2 = rnorm(n, 0, 1)
+eta1 = sigma1*xi1 + mu1
+eta2 = (sqrt(1-rho^2)*xi2 + rho*xi1)*sigma2 + mu2
+xi = cbind(eta1, eta2)
+muh = c(mean(eta1), mean(eta2))
+sigmah = matrix(c(var(eta1), cor(eta1, eta2), cor(eta2, eta1), var(eta2)),2)
+```
+```{r, message=FALSE, echo=FALSE, warning = FALSE}
+# 创建数据框
+df <- data.frame(eta1 = eta1, eta2 = eta2)
+# 1. 散点图
+p1 <- ggplot(df, aes(x = eta1, y = eta2)) +
+  geom_point(alpha = 0.6, color = "steelblue") +
+  geom_density_2d(color = "red", linewidth = 0.5) +
+  geom_vline(xintercept = muh[1], linetype = "dashed", color = "red") +
+  geom_hline(yintercept = muh[2], linetype = "dashed", color = "red") +
+  labs(title = "Scatter Diagram",
+       subtitle = paste("rho =", rho),
+       x = "eta1", y = "eta2") +
+  theme_minimal()
+# 2. eta1的直方图与密度曲线
+p2 <- ggplot(df, aes(x = eta1)) +
+  geom_histogram(aes(y = ..density..), bins = 30,
+                 fill = "lightblue", color = "black", alpha = 0.7) +
+  geom_density(color = "darkblue", linewidth = 1) +
+  geom_vline(xintercept = muh[1], linetype = "dashed", color = "red", linewidth = 1) +
+  labs(title = "Distribution of eta1", x = "eta1", y = "Dense") +
+  theme_minimal()
+# 3. eta2的直方图与密度曲线
+p3 <- ggplot(df, aes(x = eta2)) +
+  geom_histogram(aes(y = ..density..), bins = 30,
+                 fill = "lightgreen", color = "black", alpha = 0.7) +
+  geom_density(color = "darkgreen", linewidth = 1) +
+  geom_vline(xintercept = muh[2], linetype = "dashed", color = "red", linewidth = 1) +
+  labs(title = "Distribution of eta2", x = "eta2", y = "Dense") +
+  theme_minimal()
+# 4. 箱线图比较
+p4 <- ggplot(df) +
+  geom_boxplot(aes(x = "eta1", y = eta1), fill = "lightblue", width = 0.3) +
+  geom_boxplot(aes(x = "eta2", y = eta2), fill = "lightgreen", width = 0.3) +
+  labs(title = "Box Plot of eta1 & eta2", x = "", y = "value") +
+  theme_minimal()
+# 打印统计信息
+cat("Sample Average:\n")
+print(muh)
+cat("\nSample Covariance Matrix:\n")
+print(sigmah)
+grid.arrange(p1, p4, p2, p3, ncol = 2)
+```
+## Exercise 2.5: Non-replacement Sampling Distribution
+```{r, message=FALSE, warning=FALSE}
+n <- 100
+m <- 10
+r <- 6
+ni <- c(5, 25, 12, 10, 40, 8)
+x <- c()
+tx <- rep(0, r)
+for(t in 1:1000){
+  tx = rhyper(1, ni[1], n-ni[1], m)
+  w = n-ni[1]
+  s = m
+  for(i in 2:r){
+    w = w-ni[1]
+    s = s-tx[i-1]
+    tx[i] = rhyper(1, ni[i], w, s)
+  }
+  x = rbind(x, tx)
+}
+```
+```{r, message=FALSE, echo=FALSE}
+# Convert results to data frame and add sample IDs
+x_df <- as.data.frame(x)
+colnames(x_df) <- paste0("Stage_", 1:r)
+x_df$sample_id <- 1:nrow(x_df)
+x_long <- melt(x_df, id.vars = "sample_id",
+               variable.name = "stage", value.name = "count")
+# 小提琴图 - 结合箱线图和密度图
+p1 <- ggplot(x_long, aes(x = stage, y = count, fill = stage)) +
+  geom_violin(alpha = 0.7) +
+  geom_boxplot(width = 0.1, fill = "white", alpha = 0.5) +
+  labs(title = "Violin Plot of Sampling Results",
+       x = "Sampling Stage", y = "Sampling Count") +
+  theme_minimal() +
+  theme(legend.position = "none")
+# 直方图网格
+p2 <- ggplot(x_long, aes(x = count)) +
+  geom_histogram(binwidth = 1, fill = "steelblue", alpha = 0.7) +
+  facet_wrap(~ stage, ncol = 3) +
+  labs(title = "Histogram Grid of Sampling Results",
+       x = "Sampling Count", y = "Frequency") +
+  theme_minimal()
+grid.arrange(p1, p2, ncol = 1)
+```
+## Exercise 3.1:
+```{r, message=FALSE, warning=FALSE}
+K <- 1000
+n <- 500
+lambda <- 1
+theoretical_mean <- lambda
+theoretical_var <- lambda
+sample_means <- numeric(K)
+sample_vars <- numeric(K)
+for(i in 1:K) {
+  sample_data <- rpois(n, lambda)
+  sample_means[i] <- mean(sample_data)
+  sample_vars[i] <- var(sample_data)
+}
+results <- data.frame(
+  Statistic = c("Mean", "Variance"),
+  Theoretical = c(theoretical_mean, theoretical_var),
+  Empirical_Mean = c(mean(sample_means), mean(sample_vars)),
+  Empirical_SE = c(sd(sample_means)/sqrt(K), sd(sample_vars)/sqrt(K))
+)
+print(results)
+```
+```{r, message=FALSE, echo=FALSE}
+mean_df <- data.frame(Value = sample_means, Type = "Sample Means")
+var_df <- data.frame(Value = sample_vars, Type = "Sample Variances")
+# Plot for means
+p1 <- ggplot(mean_df, aes(x = Value)) +
+  geom_histogram(aes(y = ..density..), bins = 30, fill = "lightblue", alpha = 0.7) +
+  geom_density(color = "blue", linewidth = 1) +
+  geom_vline(xintercept = theoretical_mean, color = "red", linetype = "dashed", linewidth = 1) +
+  labs(title = "Distribution of Sample Means(n=500)",
+       subtitle = paste("Theoretical mean =", theoretical_mean,
+                       "\nEmpirical mean =", round(mean(sample_means), 4)),
+       x = "Sample Mean", y = "Density") +
+  theme_minimal()
+# Plot for variances
+p2 <- ggplot(var_df, aes(x = Value)) +
+  geom_histogram(aes(y = ..density..), bins = 30, fill = "lightgreen", alpha = 0.7) +
+  geom_density(color = "darkgreen", linewidth = 1) +
+  geom_vline(xintercept = theoretical_var, color = "red", linetype = "dashed", linewidth = 1) +
+  labs(title = "Distribution of Sample Variances(n=500)",
+       subtitle = paste("Theoretical variance =", theoretical_var,
+                       "\nEmpirical mean =", round(mean(sample_vars), 4)),
+       x = "Sample Variance", y = "Density") +
+  theme_minimal()
+grid.arrange(p1, p2, ncol = 1)
+```
+## Exercise 3.2:
+```{r, message=FALSE, warning=FALSE}
+n <- 500
+a_true <- 0.7
+K <- 1000
+a_moment <- numeric(K)
+a_mle <- numeric(K)
+# f(x) = (a+1)x^a, 0 < x < 1
+rgammadist <- function(n, a) {
+  u <- runif(n)
+  x <- u^(1/(a + 1))
+  return(x)
+}
+# Function to calculate MLE using numerical optimization
+mle_optim <- function(x) {
+  # Negative log-likelihood function
+  neg_log_lik <- function(a) {
+    n <- length(x)
+    - (n * log(a + 1) + a * sum(log(x)))
+  }
+  # Optimize
+  start_a <- (2 * mean(x) - 1) / (1 - mean(x))
+  result <- optimize(neg_log_lik, lower = 0.001, upper = 10)
+  return(result$minimum)
+}
+for(i in 1:K) {
+  sample_data <- rgammadist(n, a_true)
+  sample_mean <- mean(sample_data)
+  a_moment[i] <- (2 * sample_mean - 1) / (1 - sample_mean)
+  a_mle[i] <- mle_optim(sample_data)
+}
+# Calculate bias and MSE
+bias_moment <- mean(a_moment) - a_true
+bias_mle <- mean(a_mle) - a_true
+mse_moment <- mean((a_moment - a_true)^2)
+mse_mle <- mean((a_mle - a_true)^2)
+# Variance of estimators
+var_moment <- var(a_moment)
+var_mle <- var(a_mle)
+results <- data.frame(
+  Estimator = c("Method of Moments", "Maximum Likelihood"),
+  Mean = c(mean(a_moment), mean(a_mle)),
+  Bias = c(bias_moment, bias_mle),
+  Variance = c(var_moment, var_mle),
+  MSE = c(mse_moment, mse_mle),
+  RMSE = c(sqrt(mse_moment), sqrt(mse_mle))
+)
+print(results)
+```
+```{r, message=FALSE, echo=FALSE}
+estimates_df <- data.frame(
+  Value = c(a_moment, a_mle),
+  Method = rep(c("Method of Moments", "Maximum Likelihood"), each = K)
+)
+# Density plot
+p1 <- ggplot(estimates_df, aes(x = Value, fill = Method)) +
+  geom_density(alpha = 0.6) +
+  geom_vline(xintercept = a_true, color = "red", linetype = "dashed", linewidth = 1) +
+  labs(title = "Distribution of Parameter Estimates",
+       subtitle = paste("True a =", a_true),
+       x = "Estimated a", y = "Density") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+# Boxplot
+p2 <- ggplot(estimates_df, aes(x = Method, y = Value, fill = Method)) +
+  geom_boxplot(alpha = 0.7) +
+  geom_hline(yintercept = a_true, color = "red", linetype = "dashed", linewidth = 1) +
+  labs(title = "Boxplot of Parameter Estimates",
+       x = "Estimation Method", y = "Estimated a") +
+  theme_minimal() +
+  theme(legend.position = "none")
+# MSE comparison bar plot
+mse_df <- data.frame(
+  Method = c("Method of Moments", "Maximum Likelihood"),
+  MSE = c(mse_moment, mse_mle)
+)
+p3 <- ggplot(mse_df, aes(x = Method, y = MSE, fill = Method)) +
+  geom_bar(stat = "identity", alpha = 0.7) +
+  labs(title = "Mean Squared Error Comparison",
+       x = "Estimation Method", y = "MSE") +
+  theme_minimal() +
+  theme(legend.position = "none")
+# Display all plots
+grid.arrange(p1, p2, p3, ncol = 2, layout_matrix = rbind(c(1, 1), c(2, 3)))
+```
+According to the result, the MSE of the Maximum Likelihood estimation is slightly smaller than that of the Method of Moments estimation.
+## Exercise 3.3:
+```{r, message=FALSE, warning=FALSE}
+n <- 300
+alpha_true <- 1
+beta_true <- 1
+x <- rnorm(n, 0, 1)
+epsilon <- rnorm(n, 0, 1)
+y <- alpha_true + beta_true * x + epsilon
+data <- data.frame(x = x, y = y)
+x_bar <- mean(x)
+y_bar <- mean(y)
+beta_hat_formula <- sum((x - x_bar) * (y - y_bar)) / sum((x - x_bar)^2)
+alpha_hat_formula <- y_bar - beta_hat_formula * x_bar
+results <- data.frame(
+  Method = c("True", "Formulas"),
+  Alpha = c(alpha_true, alpha_hat_formula),
+  Beta = c(beta_true, beta_hat_formula)
+)
+print(results)
+```
+```{r, message=FALSE, echo=FALSE}
+# Scatter plot with regression line
+ggplot(data, aes(x = x, y = y)) +
+  geom_point(alpha = 0.6, color = "blue") +
+  geom_smooth(method = "lm", formula = y ~ x, color = "red", se = TRUE) +
+  geom_abline(intercept = alpha_true, slope = beta_true,
+              color = "green", linetype = "dashed", linewidth = 1) +
+  labs(title = "Linear Regression: y = α + βx + ε",
+       subtitle = paste("True: α =", alpha_true, ", β =", beta_true,
+                       "\nEstimated: α =", round(alpha_hat_formula, 4),
+                       ", β =", round(beta_hat_formula, 4)),
+       x = "x ~ N(0,1)", y = "y") +
+  theme_minimal()
+```
+# 2. Textbook Examples
+## Example 1.1.1:
+```{r, message=FALSE, warning=FALSE}
+set.seed(1011)
+n = 1000
+sigma = 1
+r = matrix(runif(n),n,1)
+x = sqrt(-2*sigma^2*log(1-r))
+x0 = seq(0,4,0.01)
+fx = x0/(sigma^2)*exp(-x0^2/(2*sigma^2))
+hist(x, 20, freq = F)
+lines(x0, fx, 'l')
+```
+## Example 1.2.1:
+```{r, message=FALSE, warning=FALSE}
+set.seed(1011)
+X=c(1,2.5,3.5,5,6)
+prob =c(0.1,0.2,0.3,0.2,0.2)
+Fx=cumsum(prob)
+n=10000
+xi=NULL
+for(i in 1:n) {
+  r=runif(1,0,1)
+  if (r<=prob[1]) {
+    xi [i]=X[1]
+  }else
+  xi[i]=X[min(which(Fx>=r))]
+}
+x=sample(c(1,2.5,3.5,5,6),size=n,replace=TRUE,prob=prob)
+table(xi)/n  # Inverse Transform Method
+table(x)/n   # Directly Sampling
+```
+## Example 2.1.4:
+```{r, message=FALSE, warning=FALSE}
+set.seed(1011)
+rep=1000
+xi=matrix(0,rep,2)
+mu1=mu2=0
+sigma11=1
+sigma22=0.2
+rho=0.8
+sigma12=sigma21=rho*sqrt(sigma11*sigma22)
+sigma_c=sigma11-sigma12*sigma22^(-1)*sigma21
+for(i in 1:rep) {
+  x2=rnorm(1,mu2,sigma22^0.5)
+  mu_c=mu1+sigma12*sigma22^(-1)*(x2-mu2)
+  x1=rnorm(1,mu_c,sigma_c^0.5)
+  xi[i,]=c(x1,x2)
+}
+```
+```{r, message=FALSE, echo=FALSE}
+df <- data.frame(x1 = xi[,1], x2 = xi[,2])
+ggplot(df, aes(x = x1, y = x2)) +
+  geom_point(alpha = 0.6, color = "steelblue") +
+  geom_density_2d(color = "red", linewidth = 0.8) +
+  labs(title = "Bivariate Normal Distribution Sample",
+       subtitle = paste("ρ =", rho, ", n =", rep),
+       x = "X1", y = "X2") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+# 3. Classroom Practices
+## Practice 1:
+```{r, message=FALSE, warning=FALSE}
+result <- abs(exp(1) - exp(2))^(1/3)
+result_rounded <- round(result, 2)
+cat("|e-e²|^(1/3)=", result, "\n")
+cat("Rounded result=", result_rounded, "\n")
+```
+## Practice 2:
+```{r, message=FALSE, warning=FALSE}
+x <- seq(0, 2*pi, length.out = 1000)
+y <- sin(x) + cos(x)
+critical_points <- c(0, pi/4, 3*pi/4, 5*pi/4, 7*pi/4, 2*pi)
+df <- data.frame(x = x, y = y)
+ggplot(df, aes(x = x, y = y)) +
+  geom_line(linewidth = 1.2, color = "blue", linetype = "solid") +  # line setting
+  geom_point(data = data.frame(x = critical_points,
+                              y = sin(critical_points) + cos(critical_points)),
+            aes(x = x, y = y),
+            color = "red", size = 3, shape = 16) +  # special point
+  labs(title = "Function: y = sin(x) + cos(x)",
+       subtitle = "Domain: 0 ≤ x ≤ 2π",
+       x = "x (radians)",
+       y = "y = sin(x) + cos(x)") +
+  scale_x_continuous(breaks = seq(0, 2*pi, by = pi/2),
+                     labels = c("0", "π/2", "π", "3π/2", "2π")) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5, size = 12),
+    panel.grid.major = element_line(color = "lightgray", linetype = "dotted"),
+    panel.grid.minor = element_line(color = "lightgray", linetype = "dotted"),
+    axis.title = element_text(size = 12, face = "bold")
+  ) +
+  geom_hline(yintercept = 0, color = "black") +
+  geom_vline(xintercept = 0, color = "black")
+```

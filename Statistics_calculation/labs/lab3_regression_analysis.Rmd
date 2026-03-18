@@ -1,0 +1,157 @@
+---
+title: "Statistical Calculation Lab3"
+author: "ID NAME"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    latex_engine: xelatex
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rticles)
+library(gridExtra)
+library(dplyr)
+library(ggplot2)
+library(reshape2)
+library(tidyr)
+```
+# 1. Recurrence of Textbook Examples
+## Example 3.1.2: Two-Sample Parameter Estimation
+```{r, message=FALSE, warning=FALSE}
+set.seed(1011)
+library(MASS)
+K=1000
+n=50
+theta1=matrix(0,K,1)
+theta2=matrix(0,K,1)
+for (i in 1:K) {
+data=mvrnorm(n,c(0,0),diag(2))
+theta1[i]=mean(abs(data[,1]-data[,2]))
+theta2[i]=var(abs(data[,1]-data[,2]))
+}
+c(mean(theta1),2/(sqrt(pi)))
+c(mean(theta2),2-4/pi)
+```
+## Example 3.2.2: Interval Estimation of the Overall Variance
+```{r, message=FALSE, warning=FALSE}
+set.seed(1011)
+K=1000
+n=50
+a=0.05
+mu=0
+sigma=1
+inter=matrix(0,K,2)
+prob=matrix(0,K,1)
+for(i in 1:K){
+  data=rnorm(n,mu,sigma)
+  Q=var(data)*(n-1)
+  chi1=qchisq(1-a/2,n-1)
+  chi2=qchisq(a/2,n-1)
+  inter[i,]=c(Q/chi1,Q/chi2)
+  prob[i]=(sigma>inter[i,1])&(sigma<inter[i,2])
+}
+c(colMeans(inter))
+c(mean(inter[,2]-inter[,1]))
+c(mean(prob))
+```
+## Example 4.1.1: Numerical calculation of parameter tests
+```{r, message=FALSE, warning=FALSE}
+set.seed(1011)
+n=100
+res=c()
+mu=0.3;
+for(i in 1:1000){
+  data=rnorm(n)
+  E_data=mean(data)+mu
+  stat=E_data*sqrt(n)
+  res[i]=as.numeric(abs(stat)>=qnorm(0.975,0,1))
+}
+result=mean(res)
+criti=qnorm(0.975,0,1);
+power=2-pnorm(criti-sqrt(n)*mu,0,1)-pnorm(criti+sqrt(n)*mu,0,1)
+c(result, power)
+```
+# 2. Exercises
+## Exercise 4.1: The Statistical Power of Hypothesis Testing
+```{r, message=FALSE, warning=FALSE}
+n = 100
+m = 50
+mu1 = 0
+mu2 = 2
+sigma = 1
+K = 100
+res<-c()
+for(i in 1:K){
+  X<-rnorm(n,mu1,sigma)
+  Y<-rnorm(m,mu2,sigma)
+  Sp<-sqrt((sum((X-mean(X))^2)+sum((Y-mean(Y))^2))/(n+m-2))
+  T<-(mean(X)-mean(Y))/(Sp*sqrt(1/n+1/m))
+  res[i]<-as.numeric(abs(T)>=qt(0.975,n+m-2))
+}
+power<-mean(res)
+c(power)
+```
+## Exercise 4.2: One-sample Goodness-of-fit Test
+(1) Chi-square Test
+```{r, message=FALSE, warning=FALSE}
+n = 35
+mu = 80
+sigma = 6
+data=c(68,68,72,75,75,76,76,77,77,77,77,77,77,78,78,78,80,
+       80,80,80,80,80,81,81,81,84,84,86,86,87,87,90,92,92,92)
+prob_cut <- c(0, 0.25, 0.5, 0.75, 1)
+cut_points <- qnorm(prob_cut, mean = mu, sd = sigma)
+observed <- table(cut(data, breaks = cut_points, include.lowest = TRUE, right = FALSE))
+expected <- rep(n/4, 4)
+chi_sq_stat <- sum((observed - expected)^2 / expected)
+df <- 4 - 1
+p_value_chi <- pchisq(chi_sq_stat, df = df)
+c(chi_sq_stat)
+if (p_value_chi>0.05){
+  cat("p =", p_value_chi, "> 0.05", "\n")
+  cat("Cannot reject the null hypothesis. The data may come from N(80,36).")
+} else {
+  cat("p =", p_value_ks, "< 0.05", "\n")
+  cat("Reject the null hypothesis. The data may not come from N(80,36).")
+}
+```
+(2) K-S Test
+```{r, message=FALSE, warning=FALSE}
+n = 35
+mu = 80
+sigma = 6
+data=c(68,68,72,75,75,76,76,77,77,77,77,77,77,78,78,78,80,
+       80,80,80,80,80,81,81,81,84,84,86,86,87,87,90,92,92,92)
+sorted_data<- sort(data)
+D_splus<-max(abs(c(1:n)/n-pnorm(sorted_data,mean=mu,sd=sigma)))
+D_minus<-max(abs((c(1:n)-1)/n-pnorm(sorted_data,mean=mu,sd=sigma)))
+KS_stat<-max(D_splus,D_minus)
+ks_test_result <- ks.test(data, "pnorm", mean = mu, sd = sigma)
+p_value_ks <- ks_test_result$p.value
+c(KS_stat)
+if (p_value_ks>0.05){
+  cat("p =", p_value_ks, "> 0.05", "\n")
+  cat("Cannot reject the null hypothesis. The data may come from N(80,36).")
+} else {
+  cat("p =", p_value_ks, "< 0.05", "\n")
+  cat("Reject the null hypothesis. The data may not come from N(80,36).")
+}
+```
+# 3. Classroom Practices: Dynamic Programming
+```{r, message=FALSE, warning=FALSE}
+climbStairs <- function(n) {
+    if (n <= 2) {
+        return(n)
+    }
+    dp <- numeric(n)
+    dp[1] <- 1
+    dp[2] <- 2
+    for (i in 3:n) {
+        dp[i] <- dp[i-1] + dp[i-2]
+    }
+    return(dp[n])
+}
+cat("n = 10 ->", climbStairs(10), "\n")
+cat("n = 15 ->", climbStairs(15), "\n")
+cat("n = 18 ->", climbStairs(18), "\n")
+```
