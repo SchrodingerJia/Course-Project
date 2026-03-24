@@ -1,0 +1,545 @@
+---
+title: "Statistical Calculation Lab4"
+author: "ID NAME"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    latex_engine: xelatex
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rticles)
+library(gridExtra)
+library(dplyr)
+library(ggplot2)
+library(reshape2)
+library(tidyr)
+```
+# 1. Recurrence of Textbook Examples
+## Example 6.1.1: Bootstrap estimation of the bias of variance estimators
+```{r, message=FALSE, warning=FALSE}
+set.seed(1011)
+n=100; mu=0; sigma=2; m=2000;
+X=rnorm(n,mu,sigma);
+sigma2hat=mean((X-mean(X))^2)
+sigma2Bst=NULL
+for (i in (1:m)){
+  O=sample(seq(1,n),n,replace=T)
+  Bstrap_X=X[O]
+  sigma2Bst[i]=mean((Bstrap_X-mean(Bstrap_X))^2)
+}
+Bias=mean(sigma2Bst)-sigma2hat
+cat(Bias)
+```
+## Example 6.1.3: Bootstrap estimation of the bias of the mean difference estimator
+```{r, message=FALSE, warning=FALSE}
+set.seed(1011)
+n1=100
+n2=200
+mu1=0
+mu2=0.3
+sigma1=1
+sigma2=2
+X=rnorm(n1,mu1,sigma1)
+Y=rnorm(n2,mu2,sigma2)
+diffhat=mean(X)-mean(Y)
+m=2000
+diffBst=NULL
+for (i in (1:m)){
+  O1=sample(seq(1,n1),n1,replace=T)
+  O2=sample(seq(1,n2),n2,replace=T)
+  Bst_X=X[O1]
+  Bst_Y=Y[O2]
+  diffBst[i]=mean(Bst_X)-mean(Bst_Y)
+}
+Bias=mean(diffBst)-diffhat
+cat(Bias)
+```
+## Example 6.1.5: Bootstrap estimation of the variance of the correlation coefficient estimator
+```{r, message=FALSE, warning=FALSE}
+set.seed(1011)
+library(mnormt)
+n=100
+mu1=mu2=0
+sigma1=1
+sigma2=2
+rho=0.6
+sigma12=sigma21=rho*sigma1*sigma2
+mu=c(mu1,mu2)
+Sigma=matrix(c(sigma1^2,sigma12,sigma21,sigma2^2),2,2)
+Data=rmnorm(n,mu,Sigma)
+X=Data[,1]
+Y=Data[,2]
+rhohat=sum((X-mean(X))*(Y-mean(Y)))/sqrt(sum((X-mean(X))^2)*sum((Y-mean(Y))^2));
+m=2000
+rhoBst=NULL
+for (i in (1:m)){
+  O=sample(seq(1,n),n,replace=T);
+  Bst_Data=Data[O,]
+  X=Bst_Data[,1]
+  Y=Bst_Data[,2]
+  rhoBst[i]=sum((X-mean(X))*(Y-mean(Y)))/sqrt(sum((X-mean(X))^2)*sum((Y-mean(Y))^2))
+}
+var_rhoBst=mean((rhoBst-mean(rhoBst))^2)
+cat(var_rhoBst)
+```
+## Example 6.2.1: Jackknife estimation of the bias of variance estimators
+```{r, message=FALSE, warning=FALSE}
+set.seed(1011)
+n=100
+mu=0
+sigma=2
+X=rnorm(n,mu,sigma)
+sigma2hat=sum((X-mean(X))^2)/n
+sigma2Jack=NULL
+for (i in (1:n)){
+  Jack_X=X[-i]
+  sigma2Jack[i]=sum((Jack_X-mean(Jack_X))^2)/(n-1)
+}
+Bias=(n-1)*mean(sigma2Jack-sigma2hat)
+cat(Bias)
+```
+## Example 6.2.4: Jackknife estimation of the correlation coefficient and its variance
+```{r, message=FALSE, warning=FALSE}
+set.seed(1011)
+library(mnormt)
+n=100
+mu1=mu2=0
+sigma1=1
+sigma2=2
+rho=0.6
+sigma12=sigma21=rho*sigma1*sigma2
+mu=c(mu1,mu2)
+Sigma=matrix(c(sigma1^2,sigma12,sigma21,sigma2^2),2,2)
+Data=rmnorm(n,mu,Sigma)
+X=Data[,1]
+Y=Data[,2]
+rhohat=sum((X-mean(X))*(Y-mean(Y)))/ sqrt(sum((X-mean(X))^2)*sum((Y-mean(Y))^2))
+rhoJack=NULL
+for (i in (1:n)){
+  Jack_Data=Data[-i,]
+  X=Jack_Data[,1]
+  Y=Jack_Data[,2]
+  rhoJack[i]=sum((X-mean(X))*(Y-mean(Y)))/sqrt(sum((X-mean(X))^2)*sum((Y-mean(Y))^2))
+}
+Varhat=(n-1)*mean((rhoJack-mean(rhoJack))^2)
+cat(Varhat)
+```
+## Example 6.3.1: Bootstrap estimation of confidence intervals
+```{r, message=FALSE, warning=FALSE}
+set.seed(1011)
+alpha=0.05
+n=100
+mu=0
+sigma=1
+X=rnorm(n,mu,sigma)
+muhat=mean(X)
+m=K=rep_muBst=500
+muBst=t=NULL
+for (i in (1:m)){
+  O=sample(seq(1,n),n,replace=T)
+  Bstrap_X=X[O]
+  muBst[i]=mean(Bstrap_X)
+  for (k in (1:K)){
+    O=sample(seq(1,n),n,replace=T)
+    rep_Bstrap_X=Bstrap_X[O]
+    rep_muBst[k]=mean(rep_Bstrap_X)
+  }
+  se_rep=sqrt(mean((rep_muBst-mean(rep_muBst))^2))
+  t[i]=(muBst[i]-muhat)/se_rep
+}
+se_muBst=sqrt(mean((muBst-mean(muBst))^2))
+L1=muhat-qnorm(1-alpha/2,0,1)*se_muBst
+U1=muhat+qnorm(1-alpha/2,0,1)*se_muBst
+smuBst=sort(muBst)
+L2=smuBst[round(m*alpha/2)]
+U2=smuBst[round(m*(1-alpha/2))]
+L3=2*muhat-smuBst[round(m*(1-alpha/2))]
+U3=2*muhat-smuBst[round(m*alpha/2)]
+st=sort(t)
+L4=muhat-st[round(m*(1-alpha/2))]*se_muBst
+U4=muhat-st[round(m*alpha/2)]*se_muBst
+c(L1,U1)
+c(L2,U2)
+c(L3,U3)
+c(L4,U4)
+```
+# 2. Exercises
+## Exercise 6.1: Bootstrap method
+```{r, message=FALSE, warning=FALSE}
+set.seed(1011)
+n <- 100
+m <- 200
+u1 <- 0
+u2 <- 1
+sigma1 <- 1
+sigma2 <- 2
+B <- 1000  # Number of bootstrap replicates
+# Generate original samples
+x_original <- rnorm(n, u1, sigma1)
+y_original <- rnorm(m, u2, sigma2)
+# True parameter
+true_ratio <- (sigma1^2) / (sigma2^2)
+# Function to calculate variance ratio
+calc_ratio <- function(x, y) {
+  var(x) / var(y)
+}
+# Original estimate
+original_estimate <- calc_ratio(x_original, y_original)
+# Bootstrap procedure
+bootstrap_estimates <- numeric(B)
+for (i in 1:B) {
+  x_boot <- sample(x_original, n, replace = TRUE)
+  y_boot <- sample(y_original, m, replace = TRUE)
+  bootstrap_estimates[i] <- calc_ratio(x_boot, y_boot)
+}
+# Calculate bias and variance
+bootstrap_bias <- mean(bootstrap_estimates) - original_estimate
+bootstrap_variance <- var(bootstrap_estimates)
+cat("True ratio:", true_ratio, "\n")
+cat("Original estimate:", original_estimate, "\n")
+cat("Bootstrap bias:", bootstrap_bias, "\n")
+cat("Bootstrap variance:", bootstrap_variance, "\n")
+```
+```{r, message=FALSE, echo=FALSE, warning = FALSE}
+df_boot <- data.frame(estimates = bootstrap_estimates)
+ggplot(df_boot, aes(x = estimates)) +
+  geom_histogram(aes(y = ..density..), bins = 30, fill = "lightblue", alpha = 0.7) +
+  geom_density(color = "darkblue", linewidth = 1) +
+  geom_vline(xintercept = original_estimate, color = "red", linetype = "dashed", linewidth = 1) +
+  geom_vline(xintercept = true_ratio, color = "green", linetype = "dashed", linewidth = 1) +
+  labs(title = "Bootstrap Distribution of Variance Ratio Estimate",
+       x = "Variance Ratio Estimates",
+       y = "Density",
+       subtitle = paste("Bias =", round(bootstrap_bias, 4),
+                       "Variance =", round(bootstrap_variance, 4))) +
+  theme_minimal()
+```
+## Exercise 6.2: Jackknife method
+```{r, message=FALSE, warning=FALSE}
+set.seed(1011)
+n <- 100
+m <- 200
+u1 <- 0
+u2 <- 1
+sigma1 <- 1
+sigma2 <- 2
+# Generate original samples
+x_original <- rnorm(n, u1, sigma1)
+y_original <- rnorm(m, u2, sigma2)
+# Function to calculate variance ratio
+calc_ratio <- function(x, y) {
+  var(x) / var(y)
+}
+# Original estimate
+original_estimate <- calc_ratio(x_original, y_original)
+# Jackknife procedure - delete X observations
+jackknife_x <- numeric(n)
+for (i in 1:n) {
+  x_jack <- x_original[-i]
+  jackknife_x[i] <- calc_ratio(x_jack, y_original)
+}
+# Jackknife procedure - delete Y observations
+jackknife_y <- numeric(m)
+for (j in 1:m) {
+  y_jack <- y_original[-j]
+  jackknife_y[j] <- calc_ratio(x_original, y_jack)
+}
+# Combine jackknife estimates
+all_jackknife <- c(jackknife_x, jackknife_y)
+pseudo_values <- (n + m) * original_estimate - (n + m - 1) * all_jackknife
+# Calculate jackknife estimates
+jackknife_estimate <- mean(pseudo_values)
+jackknife_bias <- (n + m - 1) * (mean(all_jackknife) - original_estimate)
+jackknife_variance <- var(pseudo_values) / (n + m)
+cat("True ratio:", (sigma1^2) / (sigma2^2), "\n")
+cat("Original estimate:", original_estimate, "\n")
+cat("Jackknife bias:", jackknife_bias, "\n")
+cat("Jackknife variance:", jackknife_variance, "\n")
+```
+```{r, message=FALSE, echo=FALSE, warning = FALSE}
+df_jack <- data.frame(
+  type = rep(c("Delete X", "Delete Y"), c(n, m)),
+  estimates = c(jackknife_x, jackknife_y)
+)
+ggplot(df_jack, aes(x = estimates, fill = type)) +
+  geom_histogram(aes(y = ..density..), alpha = 0.6, position = "identity", bins = 30) +
+  geom_vline(xintercept = original_estimate, color = "red", linetype = "dashed", linewidth = 1) +
+  geom_vline(xintercept = (sigma1^2) / (sigma2^2), color = "green", linetype = "dashed", linewidth = 1) +
+  labs(title = "Jackknife Distribution of Variance Ratio Estimates",
+       x = "Variance Ratio Estimates",
+       y = "Density",
+       fill = "Jackknife Type",
+       subtitle = paste("Bias =", round(jackknife_bias, 4),
+                       "Variance =", round(jackknife_variance, 4))) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+## Exercise 6.3: Bootstrap method estimates the parameters of the Gamma distribution
+```{r, message=FALSE, warning=FALSE}
+set.seed(1011)
+n <- 200
+a_true <- 2
+lambda_true <- 1
+B <- 1000
+# Generate original sample from Gamma distribution
+x_original <- rgamma(n, shape = a_true, rate = lambda_true)
+# Method of moments estimators for Gamma distribution
+gamma_estimators <- function(x) {
+  mean_x <- mean(x)
+  var_x <- var(x)
+  a_hat <- mean_x^2 / var_x
+  lambda_hat <- mean_x / var_x
+  return(c(a_hat, lambda_hat))
+}
+# Original estimates
+original_estimates <- gamma_estimators(x_original)
+# Bootstrap procedure
+bootstrap_estimates <- matrix(0, nrow = B, ncol = 2)
+for (i in 1:B) {
+  x_boot <- sample(x_original, n, replace = TRUE)
+  bootstrap_estimates[i, ] <- gamma_estimators(x_boot)
+}
+# Calculate bias and variance
+bootstrap_bias <- colMeans(bootstrap_estimates) - original_estimates
+bootstrap_variance <- apply(bootstrap_estimates, 2, var)
+cat("True parameters: a =", a_true, "lambda =", lambda_true, "\n")
+cat("Original estimates: a_hat =", original_estimates[1], "lambda_hat =", original_estimates[2], "\n")
+cat("Bootstrap bias - a:", bootstrap_bias[1], "lambda:", bootstrap_bias[2], "\n")
+cat("Bootstrap variance - a:", bootstrap_variance[1], "lambda:", bootstrap_variance[2], "\n")
+```
+```{r, message=FALSE, echo=FALSE, warning = FALSE}
+df_gamma <- data.frame(
+  a_estimates = bootstrap_estimates[, 1],
+  lambda_estimates = bootstrap_estimates[, 2]
+)
+# Plot for shape parameter a
+p1 <- ggplot(df_gamma, aes(x = a_estimates)) +
+  geom_histogram(aes(y = ..density..), bins = 30, fill = "lightcoral", alpha = 0.7) +
+  geom_density(color = "darkred", linewidth = 1) +
+  geom_vline(xintercept = a_true, color = "green", linetype = "dashed", linewidth = 1) +
+  geom_vline(xintercept = original_estimates[1], color = "red", linetype = "dashed", linewidth = 1) +
+  labs(title = "Bootstrap Distribution of Shape Parameter (a)",
+       x = "Shape Parameter Estimates",
+       y = "Density") +
+  theme_minimal()
+# Plot for rate parameter lambda
+p2 <- ggplot(df_gamma, aes(x = lambda_estimates)) +
+  geom_histogram(aes(y = ..density..), bins = 30, fill = "lightgreen", alpha = 0.7) +
+  geom_density(color = "darkgreen", linewidth = 1) +
+  geom_vline(xintercept = lambda_true, color = "green", linetype = "dashed", linewidth = 1) +
+  geom_vline(xintercept = original_estimates[2], color = "red", linetype = "dashed", linewidth = 1) +
+  labs(title = "Bootstrap Distribution of Rate Parameter (位)",
+       x = "Rate Parameter Estimates",
+       y = "Density") +
+  theme_minimal()
+# Display both plots
+library(gridExtra)
+grid.arrange(p1, p2, ncol = 1)
+```
+## Exercise 6.5: Jackknife after Bootstrap
+```{r, message=FALSE, warning=FALSE}
+set.seed(1011)
+n <- 200
+sigma_true <- 2
+B <- 1000
+# Generate original sample
+x_original <- rnorm(n, 0, sigma_true)
+# Function for variance estimator
+variance_estimator <- function(x) {
+  mean((x - mean(x))^2)
+}
+# Original estimate
+original_variance <- variance_estimator(x_original)
+# Bootstrap procedure for bias estimation
+bootstrap_variances <- numeric(B)
+for (i in 1:B) {
+  x_boot <- sample(x_original, n, replace = TRUE)
+  bootstrap_variances[i] <- variance_estimator(x_boot)
+}
+# Bootstrap bias estimate
+bootstrap_bias_estimate <- mean(bootstrap_variances) - original_variance
+# Jackknife procedure to estimate variance of bootstrap bias estimate
+jackknife_bias_estimates <- numeric(n)
+for (i in 1:n) {
+  x_jack <- x_original[-i]
+  # Perform bootstrap on jackknife sample
+  jack_bootstrap_vars <- numeric(100)  # Reduced for computational efficiency
+  for (j in 1:100) {
+    x_jack_boot <- sample(x_jack, n-1, replace = TRUE)
+    jack_bootstrap_vars[j] <- variance_estimator(x_jack_boot)
+  }
+  jack_original_var <- variance_estimator(x_jack)
+  jackknife_bias_estimates[i] <- mean(jack_bootstrap_vars) - jack_original_var
+}
+# Jackknife variance estimate for bootstrap bias
+jackknife_variance_bias <- ((n - 1) / n) * sum((jackknife_bias_estimates - mean(jackknife_bias_estimates))^2)
+cat("True variance:", sigma_true^2, "\n")
+cat("Original variance estimate:", original_variance, "\n")
+cat("Bootstrap bias estimate:", bootstrap_bias_estimate, "\n")
+cat("Jackknife variance of bootstrap bias estimate:", jackknife_variance_bias, "\n")
+cat("Theoretical bias:", -sigma_true^2/n, "\n")
+```
+```{r, message=FALSE, echo=FALSE, warning = FALSE}
+df_comparison <- data.frame(
+  Bootstrap_Variances = bootstrap_variances,
+  Jackknife_Bias_Estimates = jackknife_bias_estimates
+)
+# Plot bootstrap distribution
+p_boot <- ggplot(df_comparison, aes(x = Bootstrap_Variances)) +
+  geom_histogram(aes(y = ..density..), bins = 30, fill = "lightblue", alpha = 0.7) +
+  geom_density(color = "darkblue", linewidth = 1) +
+  geom_vline(xintercept = sigma_true^2, color = "green", linetype = "dashed", linewidth = 1) +
+  geom_vline(xintercept = original_variance, color = "red", linetype = "dashed", linewidth = 1) +
+  labs(title = "Bootstrap Distribution of Variance Estimates",
+       x = "Variance Estimates",
+       y = "Density") +
+  theme_minimal()
+# Plot jackknife distribution of bias estimates
+p_jack <- ggplot(data.frame(Bias_Estimates = jackknife_bias_estimates),
+                 aes(x = Bias_Estimates)) +
+  geom_histogram(aes(y = ..density..), bins = 30, fill = "lightyellow", alpha = 0.7) +
+  geom_density(color = "darkorange", linewidth = 1) +
+  geom_vline(xintercept = bootstrap_bias_estimate, color = "red", linetype = "dashed", linewidth = 1) +
+  geom_vline(xintercept = -sigma_true^2/n, color = "green", linetype = "dashed", linewidth = 1) +
+  labs(title = "Jackknife Distribution of Bootstrap Bias Estimates",
+       x = "Bias Estimates",
+       y = "Density",
+       subtitle = paste("Variance of bias estimates =", round(jackknife_variance_bias, 6))) +
+  theme_minimal()
+grid.arrange(p_boot, p_jack, ncol = 1)
+```
+# 3. Classroom Practices:
+## Practice 1: Confidence interval of the sample median
+```{r, message=FALSE, warning=FALSE}
+set.seed(1011)
+sample_data <- rnorm(50, mean = 10, sd = 2)
+n_bootstrap = 1000
+conf_level = 0.95
+n <- length(sample_data)
+bootstrap_medians <- numeric(n_bootstrap)
+for(i in 1:n_bootstrap) {
+  bootstrap_sample <- sample(sample_data, n, replace = TRUE)
+  bootstrap_medians[i] <- median(bootstrap_sample)
+}
+alpha <- 1 - conf_level
+ci_lower <- quantile(bootstrap_medians, alpha/2)
+ci_upper <- quantile(bootstrap_medians, 1 - alpha/2)
+cat(ci_lower, ci_upper)
+```
+```{r, message=FALSE, echo=FALSE, warning = FALSE}
+df <- data.frame(medians = bootstrap_medians)
+ggplot(df, aes(x = medians)) +
+    geom_histogram(aes(y = ..density..), bins = 30, fill = "lightblue", alpha = 0.7) +
+    geom_density(color = "blue") +
+    geom_vline(xintercept = ci_lower, color = "red", linetype = "dashed") +
+    geom_vline(xintercept = ci_upper, color = "red", linetype = "dashed") +
+    geom_vline(xintercept = median(sample_data), color = "darkgreen", size = 1) +
+    labs(title = "Bootstrap Distribution of Median",
+         x = "Bootstrap Medians", y = "Density") +
+    theme_minimal()
+```
+## Practice 2: Correlation coefficient
+```{r, message=FALSE, warning=FALSE}
+set.seed(1011)
+x <- c(2, 3, 5, 7, 9, 11, 12, 14, 15, 16, 20)
+y <- c(55, 62, 68, 75, 79, 85, 82, 88, 90, 92, 65)
+n_bootstrap = 1000
+conf_level = 0.95
+n <- length(x)
+pearson_boot <- numeric(n_bootstrap)
+spearman_boot <- numeric(n_bootstrap)
+for(i in 1:n_bootstrap) {
+  indices <- sample(1:n, n, replace = TRUE)
+  x_boot <- x[indices]
+  y_boot <- y[indices]
+  pearson_boot[i] <- cor(x_boot, y_boot, method = "pearson")
+  spearman_boot[i] <- cor(x_boot, y_boot, method = "spearman")
+}
+pearson_original <- cor(x, y, method = "pearson")
+spearman_original <- cor(x, y, method = "spearman")
+pearson_bias <- mean(pearson_boot) - pearson_original
+spearman_bias <- mean(spearman_boot) - spearman_original
+pearson_se <- sd(pearson_boot)
+spearman_se <- sd(spearman_boot)
+alpha <- 1 - conf_level
+pearson_ci <- quantile(pearson_boot, c(alpha/2, 1 - alpha/2))
+spearman_ci <- quantile(spearman_boot, c(alpha/2, 1 - alpha/2))
+results_df <- data.frame(
+  Method = c("Pearson", "Spearman"),
+  Original = c(pearson_original, spearman_original),
+  Bias = c(pearson_bias, spearman_bias),
+  Standard_Error = c(pearson_se, spearman_se),
+  CI_Lower = c(pearson_ci[1], spearman_ci[1]),
+  CI_Upper = c(pearson_ci[2], spearman_ci[2])
+)
+print(results_df)
+```
+```{r, message=FALSE, echo=FALSE, warning = FALSE}
+df <- data.frame(
+    Correlation = c(pearson_boot, spearman_boot),
+    Method = rep(c("Pearson", "Spearman"), each = n_bootstrap)
+  )
+ggplot(df, aes(x = Correlation, fill = Method)) +
+    geom_density(alpha = 0.5) +
+    geom_vline(xintercept = pearson_original, color = "blue", linetype = "dashed") +
+    geom_vline(xintercept = spearman_original, color = "red", linetype = "dashed") +
+    labs(title = "Bootstrap Distributions of Correlation Coefficients",
+         x = "Correlation Coefficient", y = "Density") +
+    theme_minimal() +
+    scale_fill_manual(values = c("Pearson" = "blue", "Spearman" = "red"))
+```
+## Practice 3: Estimate the value of pi
+```{r, message=FALSE, warning=FALSE}
+set.seed(1011)
+n_points = 10000
+x <- runif(n_points, -1, 1)
+y <- runif(n_points, -1, 1)
+inside_circle <- (x^2 + y^2) <= 1
+pi_estimate <- 4 * sum(inside_circle) / n_points
+cat(pi_estimate)
+```
+```{r, message=FALSE, echo=FALSE, warning = FALSE}
+df <- data.frame(x = x, y = y, inside = inside_circle)
+ggplot(df, aes(x = x, y = y, color = inside)) +
+  geom_point(size = 0.5, alpha = 0.7) +
+  scale_color_manual(values = c("FALSE" = "red", "TRUE" = "blue"),
+                     labels = c("Outside", "Inside")) +
+  labs(title = paste("Monte Carlo Estimation of 蟺 =", round(pi_estimate, 4)),
+       x = "X", y = "Y", color = "Position") +
+  theme_minimal() +
+  coord_fixed()
+```
+## Practice 4:
+```{r, message=FALSE, warning=FALSE}
+set.seed(1011)
+n = 100
+n_sim = 1000
+theta = 2
+estimates <- numeric(n_sim)
+estimates_c <- numeric(n_sim)
+for(i in 1:n_sim) {
+  x <- rnorm(n, 0, theta)
+  mixture <- runif(n) < 0.9
+  x_c <- ifelse(mixture, rnorm(n, 0, 2), rnorm(n, 0, 4))
+  estimates[i] <- (1/n * sum(abs(x - mean(x))))
+  estimates_c[i] <- (1/n * sum(abs(x_c - mean(x_c))))
+}
+true_value <- theta * sqrt(2/pi)
+true_value_c <- 0.9*2*sqrt(2/pi) + 0.1*4*sqrt(2/pi)
+bias <- mean(estimates) - true_value
+variance <- var(estimates)
+mse <- mean((estimates - true_value)^2)
+bias_c <- mean(estimates_c) - true_value_c
+variance_c <- var(estimates_c)
+mse_c <- mean((estimates_c - true_value_c)^2)
+results_df <- data.frame(
+  Distribution = c("Normal", "Contaminated"),
+  Theory = c(true_value, true_value_c),
+  Bias = c(bias, bias_c),
+  Variance = c(variance, variance_c),
+  MSE = c(mse, mse_c)
+)
+print(results_df)
+```
+This estimated quantity is the Mean Absolute Deviation (MAD), which is more robust to outliers compared to the standard deviation. By comparing its performance under normal distribution and contaminated distribution, we can observe its robustness when outliers are present.

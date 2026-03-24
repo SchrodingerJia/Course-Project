@@ -1,0 +1,13 @@
+# 统计计算实验项目依赖包
+# 使用以下命令安装所有依赖：
+# install.packages(c("ggplot2", "dplyr", "tidyr", "reshape2", "gridExtra", "rticles", "MASS"))
+
+ggplot2>=3.4.0
+dplyr>=1.1.0
+tidyr>=1.3.0
+reshape2>=1.4.4
+gridExtra>=2.3
+rticles>=0.25
+MASS>=7.3.60
+knitr>=1.45
+rmarkdown>=2.25
